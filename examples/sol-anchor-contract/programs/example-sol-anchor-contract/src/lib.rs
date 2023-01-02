@@ -25,6 +25,7 @@ pub struct InitRequest<'info> {
 #[derive(Accounts)]
 pub struct QueryRequest<'info> {
     pub config: Account<'info, AdminConfig>,
+    // It seems that #[account(...)] cannot be used for PythPriceAccount
     // #[account(address = config.loan_price_feed_id @ ErrorCode::InvalidArgument)]
     pub pyth_loan_account: PythPriceAccount<'info>,
     // #[account(address = config.collateral_price_feed_id @ ErrorCode::InvalidArgument)]

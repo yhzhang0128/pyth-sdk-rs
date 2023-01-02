@@ -1,7 +1,4 @@
-// use std::fmt;
-// use std::ops::{Deref, DerefMut};
 use pyth_sdk::PriceFeed;
-// use anchor_lang::AccountsClose;
 use anchor_lang::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 use pyth_sdk_solana::state::load_price_account;
@@ -20,17 +17,6 @@ pub struct PythPriceAccount<'info> {
     info: AccountInfo<'info>,
 }
 
-// impl<'info> fmt::Debug
-//     for PythPriceAccount<'info>
-// {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("Account")
-//             .field("account", &self.account)
-//             .field("info", &self.info)
-//             .finish()
-//     }
-// }
-
 impl<'a> PythPriceAccount<'a> {
     fn new(info: AccountInfo<'a>, account: PriceFeed) -> PythPriceAccount<'a> {
         Self { info, account }
@@ -47,39 +33,8 @@ impl<'a> PythPriceAccount<'a> {
         Ok(PythPriceAccount::new(info.clone(), feed))
     }
 
-    /// Deserializes the given `info` into a `Account` without checking
-    /// the account discriminator. Be careful when using this and avoid it if
-    /// possible.
-    // #[inline(never)]
-    // pub fn try_from_unchecked(info: &AccountInfo<'a>) -> Result<Account<'a, T>> {
-    //     if info.owner == &system_program::ID && info.lamports() == 0 {
-    //         return Err(ErrorCode::AccountNotInitialized.into());
-    //     }
-    //     if info.owner != &T::owner() {
-    //         return Err(Error::from(ErrorCode::AccountOwnedByWrongProgram)
-    //             .with_pubkeys((*info.owner, T::owner())));
-    //     }
-    //     let mut data: &[u8] = &info.try_borrow_data()?;
-    //     Ok(Account::new(
-    //         info.clone(),
-    //         T::try_deserialize_unchecked(&mut data)?,
-    //     ))
-    // }
-
-    /// Reloads the account from storage. This is useful, for example, when
-    /// observing side effects after CPI.
-    // pub fn reload(&mut self) -> Result<()> {
-    //     let mut data: &[u8] = &self.info.try_borrow_data()?;
-    //     self.account = T::try_deserialize(&mut data)?;
-    //     Ok(())
-    // }
-
     pub fn into_inner(self) -> PriceFeed {
         self.account
-    }
-
-    pub fn set_inner(&mut self, inner: PriceFeed) {
-        self.account = inner;
     }
 }
 
@@ -181,8 +136,8 @@ impl<'info> ToAccountInfos<'info>
 //     }
 // }
 
-impl<'info> Key for PythPriceAccount<'info> {
-    fn key(&self) -> Pubkey {
-        *self.info.key
-    }
-}
+// impl<'info> Key for PythPriceAccount<'info> {
+//     fn key(&self) -> Pubkey {
+//         *self.info.key
+//     }
+// }
