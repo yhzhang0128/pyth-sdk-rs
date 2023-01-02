@@ -4,7 +4,7 @@ use solana_program::account_info::AccountInfo;
 
 pub mod state;
 use state::AdminConfig;
-use state::PythPriceFeed;
+use state::PythPriceAccount;
 
 mod error;
 use error::ErrorCode;
@@ -25,10 +25,10 @@ pub struct InitRequest<'info> {
 #[derive(Accounts)]
 pub struct QueryRequest<'info> {
     pub config: Account<'info, AdminConfig>,
-    #[account(address = config.loan_price_feed_id @ ErrorCode::InvalidArgument)]
-    pub pyth_loan_account: Account<'info, PythPriceFeed>,
-    #[account(address = config.collateral_price_feed_id @ ErrorCode::InvalidArgument)]
-    pub pyth_collateral_account: Account<'info, PythPriceFeed>,
+    // #[account(address = config.loan_price_feed_id @ ErrorCode::InvalidArgument)]
+    pub pyth_loan_account: PythPriceAccount<'info>,
+    // #[account(address = config.collateral_price_feed_id @ ErrorCode::InvalidArgument)]
+    pub pyth_collateral_account: PythPriceAccount<'info>,
 }
 
 #[program]
@@ -44,8 +44,8 @@ pub mod example_sol_anchor_contract {
         msg!("Loan quantity is {}.", loan_qty);
         msg!("Collateral quantity is {}.", collateral_qty);
 
-        let loan_feed = &ctx.accounts.pyth_loan_account.feed;
-        let collateral_feed = &ctx.accounts.pyth_collateral_account.feed;
+        let loan_feed = &ctx.accounts.pyth_loan_account.into_inner();
+        let collateral_feed = &ctx.accounts.pyth_collateral_account.into_inner();
         // With high confidence, the maximum value of the loan is
         // (price + conf) * loan_qty * 10 ^ (expo).
         // Here is more explanation on confidence interval in Pyth:

@@ -1,6 +1,9 @@
-use std::str::FromStr;
+// use std::fmt;
+// use std::ops::{Deref, DerefMut};
 use pyth_sdk::PriceFeed;
+// use anchor_lang::AccountsClose;
 use anchor_lang::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
 use pyth_sdk_solana::state::load_price_account;
 
 use crate::ErrorCode;
@@ -12,32 +15,174 @@ pub struct AdminConfig {
 }
 
 #[derive(Clone)]
-pub struct PythPriceFeed {
-    pub feed: PriceFeed,
+pub struct PythPriceAccount<'info> {
+    account: PriceFeed,
+    info: AccountInfo<'info>,
 }
 
-impl anchor_lang::AccountDeserialize for PythPriceFeed {
-    fn try_deserialize_unchecked(data: &mut &[u8]) -> Result<Self>{
+// impl<'info> fmt::Debug
+//     for PythPriceAccount<'info>
+// {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("Account")
+//             .field("account", &self.account)
+//             .field("info", &self.info)
+//             .finish()
+//     }
+// }
+
+impl<'a> PythPriceAccount<'a> {
+    fn new(info: AccountInfo<'a>, account: PriceFeed) -> PythPriceAccount<'a> {
+        Self { info, account }
+    }
+
+    /// Deserializes the given `info` into a `Account`.
+    #[inline(never)]
+    pub fn try_from(info: &AccountInfo<'a>) -> Result<PythPriceAccount<'a>> {
+        let mut data: &[u8] = &info.try_borrow_data()?;
         let account = load_price_account(data)
             .map_err(|_x| error!(ErrorCode::PythError))?;
         // CHECK: using a dummy key for constructing PriceFeed
-        let zeros: [u8; 32] = [0; 32];
-        let dummy_key = Pubkey::new(&zeros);
-        let feed = account.to_price_feed(&dummy_key);
-        return Ok(PythPriceFeed {feed: feed});
+        let feed = account.to_price_feed(&info.key);
+        Ok(PythPriceAccount::new(info.clone(), feed))
+    }
+
+    /// Deserializes the given `info` into a `Account` without checking
+    /// the account discriminator. Be careful when using this and avoid it if
+    /// possible.
+    // #[inline(never)]
+    // pub fn try_from_unchecked(info: &AccountInfo<'a>) -> Result<Account<'a, T>> {
+    //     if info.owner == &system_program::ID && info.lamports() == 0 {
+    //         return Err(ErrorCode::AccountNotInitialized.into());
+    //     }
+    //     if info.owner != &T::owner() {
+    //         return Err(Error::from(ErrorCode::AccountOwnedByWrongProgram)
+    //             .with_pubkeys((*info.owner, T::owner())));
+    //     }
+    //     let mut data: &[u8] = &info.try_borrow_data()?;
+    //     Ok(Account::new(
+    //         info.clone(),
+    //         T::try_deserialize_unchecked(&mut data)?,
+    //     ))
+    // }
+
+    /// Reloads the account from storage. This is useful, for example, when
+    /// observing side effects after CPI.
+    // pub fn reload(&mut self) -> Result<()> {
+    //     let mut data: &[u8] = &self.info.try_borrow_data()?;
+    //     self.account = T::try_deserialize(&mut data)?;
+    //     Ok(())
+    // }
+
+    pub fn into_inner(self) -> PriceFeed {
+        self.account
+    }
+
+    pub fn set_inner(&mut self, inner: PriceFeed) {
+        self.account = inner;
     }
 }
 
-impl anchor_lang::AccountSerialize for PythPriceFeed {
-    fn try_serialize<W: std::io::Write>(&self, _writer: &mut W,) -> std::result::Result<(), Error> {
-        Err(error!(ErrorCode::TryToSerializePriceAccount))
+impl<'info> Accounts<'info>
+    for PythPriceAccount<'info>
+{
+    #[inline(never)]
+    fn try_accounts(
+        _program_id: &Pubkey,
+        accounts: &mut &[AccountInfo<'info>],
+        _ix_data: &[u8],
+        _bumps: &mut BTreeMap<String, u8>,
+        _reallocs: &mut BTreeSet<Pubkey>,
+    ) -> Result<Self> {
+        // if accounts.is_empty() {
+        //     return Err(ErrorCode::AccountNotEnoughKeys.into());
+        // }
+        let account = &accounts[0];
+        *accounts = &accounts[1..];
+        PythPriceAccount::try_from(account)
     }
 }
 
-impl anchor_lang::Owner for PythPriceFeed {
-    fn owner() -> Pubkey {
-        // CHECK: this is the pyth oracle address on solana devnet
-        let oracle_addr = "gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s";
-        return  Pubkey::from_str(&oracle_addr).unwrap();
+impl<'info> AccountsExit<'info>
+    for PythPriceAccount<'info>
+{
+    fn exit(&self, program_id: &Pubkey) -> Result<()> {
+        // Only persist if the owner is the current program and the account is not closed.
+        // if !crate::common::is_closed(&self.info) {
+        //     let info = self.to_account_info();
+        //     let mut data = info.try_borrow_mut_data()?;
+        //     let dst: &mut [u8] = &mut data;
+        //     let mut writer = BpfWriter::new(dst);
+        //     self.account.try_serialize(&mut writer)?;
+        // }
+        Ok(())
+    }
+}
+
+// impl<'info> AccountsClose<'info>
+//     for PythPriceAccount<'info>
+// {
+//     fn close(&self, sol_destination: AccountInfo<'info>) -> Result<()> {
+//         crate::common::close(self.to_account_info(), sol_destination)
+//     }
+// }
+
+impl<'info> ToAccountMetas
+    for PythPriceAccount<'info>
+{
+    fn to_account_metas(&self, is_signer: Option<bool>) -> Vec<AccountMeta> {
+        let is_signer = is_signer.unwrap_or(self.info.is_signer);
+        let meta = match self.info.is_writable {
+            false => AccountMeta::new_readonly(*self.info.key, is_signer),
+            true => AccountMeta::new(*self.info.key, is_signer),
+        };
+        vec![meta]
+    }
+}
+
+impl<'info> ToAccountInfos<'info>
+    for PythPriceAccount<'info>
+{
+    fn to_account_infos(&self) -> Vec<AccountInfo<'info>> {
+        vec![self.info.clone()]
+    }
+}
+
+// impl<'info> AsRef<AccountInfo<'info>>
+//     for PythPriceAccount<'info>
+// {
+//     fn as_ref(&self) -> &AccountInfo<'info> {
+//         &self.info
+//     }
+// }
+
+// impl<'info> AsRef<PriceFeed>
+//     for PythPriceAccount<'info>
+// {
+//     fn as_ref(&self) -> &PriceFeed {
+//         &self.account
+//     }
+// }
+
+// impl<'a> Deref for PythPriceAccount<'a> {
+//     fn deref(&self) -> &PriceFeed {
+//         &(self).account
+//     }
+// }
+
+// impl<'a> DerefMut for PythPriceAccount<'a> {
+//     fn deref_mut(&mut self) -> &mut PriceFeed {
+//         #[cfg(feature = "anchor-debug")]
+//         if !self.info.is_writable {
+//             solana_program::msg!("The given Account is not mutable");
+//             panic!();
+//         }
+//         &mut self.account
+//     }
+// }
+
+impl<'info> Key for PythPriceAccount<'info> {
+    fn key(&self) -> Pubkey {
+        *self.info.key
     }
 }
