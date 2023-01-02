@@ -26,9 +26,9 @@ pub struct InitRequest<'info> {
 pub struct QueryRequest<'info> {
     pub config: Account<'info, AdminConfig>,
     #[account(address = config.loan_price_feed_id @ ErrorCode::InvalidArgument)]
-    pub pyth_loan_account: Account<'info, PythPriceAccount>,
+    pub pyth_loan_account: Account<'info, PythPriceAccount<'info>>,
     #[account(address = config.collateral_price_feed_id @ ErrorCode::InvalidArgument)]
-    pub pyth_collateral_account: Account<'info, PythPriceAccount>,
+    pub pyth_collateral_account: Account<'info, PythPriceAccount<'info>>,
 }
 
 #[program]

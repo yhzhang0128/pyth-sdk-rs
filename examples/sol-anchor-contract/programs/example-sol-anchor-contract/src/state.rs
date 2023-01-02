@@ -12,26 +12,26 @@ pub struct AdminConfig {
 }
 
 #[derive(Clone)]
-pub struct PythPriceAccount {
-    pub account: PriceAccount,
+pub struct PythPriceAccount<'a> {
+    pub account: &'a PriceAccount,
 }
 
-impl anchor_lang::AccountDeserialize for PythPriceAccount {
-    fn try_deserialize_unchecked(data: &mut &[u8]) -> Result<Self>{
+impl anchor_lang::AccountDeserialize for PythPriceAccount<'_> {
+    fn try_deserialize_unchecked(data: & mut &[u8]) -> Result<Self>{
         let account = load_price_account(data)
             .map_err(|_x| error!(ErrorCode::PythError))?;
-        // CHECK: any possibility of returning &PriceAccount here?
+        // CHECK: how to define different lifetime for data and account?
         return Ok(PythPriceAccount {account: account});
     }
 }
 
-impl anchor_lang::AccountSerialize for PythPriceAccount {
+impl anchor_lang::AccountSerialize for PythPriceAccount<'_> {
     fn try_serialize<W: std::io::Write>(&self, _writer: &mut W,) -> std::result::Result<(), Error> {
         Err(error!(ErrorCode::TryToSerializePriceAccount))
     }
 }
 
-impl anchor_lang::Owner for PythPriceAccount {
+impl anchor_lang::Owner for PythPriceAccount<'_> {
     fn owner() -> Pubkey {
         // CHECK: this is the pyth oracle address on solana devnet
         let oracle_addr = "gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s";
